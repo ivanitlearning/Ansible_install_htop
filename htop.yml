@@ -1,0 +1,39 @@
+---
+- hosts: all
+
+  vars_prompt:
+    - name: smb_username
+      prompt: "Enter samba share username"
+    - name: smb_password
+      prompt: "Enter samba share password"
+      private: yes
+
+  tasks:
+  - name: Ensure Samba-related packages are installed.
+    package_facts:
+      manager: auto
+  
+  - name: When all Samba packages are installed
+    debug:
+      msg: "All Samba packages installed"
+    when: 
+      - '"samba" in ansible_facts.packages'
+      - '"samba-client" in ansible_facts.packages'
+      - '"samba-common" in ansible_facts.packages'
+      - '"cifs-utils" in ansible_facts.packages'
+
+  - name: Create directory to store htop deb if it does not exist
+    file:
+      path: /home/user/deb/htop
+      state: directory
+      mode: '0755'
+      
+  - name: Copy htop deb from archive share
+    command: smbclient //10.255.252.136/deb -c 'recurse ON; prompt OFF; lcd /home/user/deb; mget *' -U {{ smb_username }}%{{ smb_password }}
+    args:  
+      creates: /home/user/deb/htop/htop_2.0.1-1ubuntu1_amd64.deb
+
+  - name: Install htop from deb pkg
+    become: true
+    apt: 
+      deb: /home/user/deb/htop/htop_2.0.1-1ubuntu1_amd64.deb
